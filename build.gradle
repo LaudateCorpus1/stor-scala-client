@@ -70,6 +70,10 @@ dependencies {
     testCompile "org.pegdown:pegdown:1.6.0"
 }
 
+task sourceJar(type: Jar) {
+    from sourceSets.main.allSource
+    classifier "sources"
+}
 
 publishing {
     publications {
