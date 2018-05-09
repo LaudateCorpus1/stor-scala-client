@@ -29,6 +29,7 @@ version = version == 'unspecified' ? 'DEVELOPER-SNAPSHOT' : version
 ext {
     circeVersion = "0.9.3"
     metricsVersion = "2.4.1"
+    http4sVersion = "0.18.10"
 }
 
 jar {
@@ -38,7 +39,8 @@ jar {
 }
 
 dependencies {
-    compile "fr.hmil:roshttp_2.12:2.1.0"
+    compile "org.http4s:http4s-dsl_2.12:$http4sVersion"
+    compile "org.http4s:http4s-blaze-client_2.12:$http4sVersion"
 
     compile 'com.github.pathikrit:better-files_2.12:3.4.0'
     compile 'commons-codec:commons-codec:1.11'
@@ -61,7 +63,6 @@ dependencies {
     compile 'org.slf4j:jcl-over-slf4j:1.7.23'
     compile 'com.typesafe.scala-logging:scala-logging_2.12:3.7.2'
 
-    testCompile "org.http4s:http4s-dsl_2.12:0.18.2"
     testCompile "org.http4s:http4s-blaze-server_2.12:0.18.2"
 
     testCompile 'junit:junit:4.12'

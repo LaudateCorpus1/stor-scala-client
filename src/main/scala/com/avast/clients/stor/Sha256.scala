@@ -7,7 +7,7 @@ import com.avast.clients.stor.Sha256._
 case class Sha256(bytes: Array[Byte]) {
   require(bytes.length == 32, s"Invalid Sha256: $bytes")
 
-  override def toString: String = bytes2hex(bytes)
+  override val toString: String = bytes2hex(bytes)
 
   override def hashCode(): Int = util.Arrays.hashCode(bytes)
 
@@ -24,10 +24,11 @@ object Sha256 {
     hex.replaceAll("[^0-9A-Fa-f]", "").sliding(2, 2).toArray.map(Integer.parseInt(_, 16).toByte)
   }
 
-  private def bytes2hex(bytes: Array[Byte], sep: Option[String] = None): String =
-    sep match {
+  private def bytes2hex(bytes: Array[Byte], sep: Option[String] = None): String = {
+    (sep match {
       case None => bytes.map("%02X".format(_)).mkString
       case _ => bytes.map("%02X".format(_)).mkString(sep.get)
-    }
+    }).toLowerCase
+  }
 
 }

@@ -16,7 +16,7 @@ sealed trait GetResult
 
 object GetResult {
 
-  case class Exists(file: File, fileSize: Long) extends GetResult
+  case class Downloaded(file: File, fileSize: Long) extends GetResult
 
   case object NotFound extends GetResult
 
