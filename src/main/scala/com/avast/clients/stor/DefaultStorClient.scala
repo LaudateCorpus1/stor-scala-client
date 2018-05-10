@@ -8,34 +8,44 @@ import monix.eval.Task
 import monix.execution.Scheduler
 import org.http4s._
 import org.http4s.client.Client
-import org.http4s.client.blaze.Http1Client
-import org.http4s.headers.`Content-Length`
+import org.http4s.headers.{`Content-Length`, Authorization}
 
-import scala.concurrent.Await
-import scala.concurrent.duration.Duration
 import scala.util.control.NonFatal
 
-class DefaultStorClient(rootUri: String, httpClient: Client[Task])(implicit sch: Scheduler) extends StorClient[Task] with StrictLogging {
+class DefaultStorClient(rootUri: Uri, auth: BasicAuth, httpClient: Client[Task])(implicit sch: Scheduler)
+    extends StorClient[Task]
+    with StrictLogging {
 
   override def head(sha256: Sha256): Task[Either[StorException, HeadResult]] = {
     logger.debug(s"Checking presence of file $sha256 in Stor")
 
-    val request = Request[Task](
-      Method.HEAD,
-      Uri.fromString(s"$rootUri/$sha256").getOrElse(throw new IllegalStateException("This should not happen"))
-    )
+    try {
+      val request = Request[Task](
+        Method.HEAD,
+        rootUri / sha256.toString
+      )
 
-    httpClient.fetch(request) { resp =>
-      resp.status match {
-        case Status.Ok => Task.now(Right(HeadResult.Exists))
-        case Status.NotFound =>
-          Task.now(Right(HeadResult.NotFound))
+      httpClient.fetch(request) { resp =>
+        resp.status match {
+          case Status.Ok =>
+            `Content-Length`.from(resp.headers) match {
+              case Some(`Content-Length`(length)) => Task.now(Right(HeadResult.Exists(length)))
+              case None =>
+                resp.bodyAsText.compile.last.map { body =>
+                  Left(InvalidResponseException(resp.status.code, body.toString, "Missing Content-Length header"))
+                }
+            }
+          case Status.NotFound =>
+            Task.now(Right(HeadResult.NotFound))
 
-        case _ =>
-          resp.bodyAsText.compile.last.map { body =>
-            Left(InvalidResponseException(resp.status.code, body.toString, "Unexpected status"))
-          }
+          case _ =>
+            resp.bodyAsText.compile.last.map { body =>
+              Left(InvalidResponseException(resp.status.code, body.toString, "Unexpected status"))
+            }
+        }
       }
+    } catch {
+      case NonFatal(e) => Task.raiseError(e)
     }
   }
 
@@ -45,7 +55,7 @@ class DefaultStorClient(rootUri: String, httpClient: Client[Task])(implicit sch:
     try {
       val request = Request[Task](
         Method.GET,
-        Uri.fromString(s"$rootUri/$sha256").getOrElse(throw new IllegalStateException("This should not happen"))
+        rootUri / sha256.toString
       )
 
       httpClient.fetch(request) { resp =>
@@ -59,6 +69,33 @@ class DefaultStorClient(rootUri: String, httpClient: Client[Task])(implicit sch:
             }
         }
 
+      }
+    } catch {
+      case NonFatal(e) => Task.raiseError(e)
+    }
+  }
+
+  override def post(sha256: Sha256)(is: InputStream): Task[Either[StorException, PostResult]] = {
+    try {
+      val request = Request[Task](
+        Method.POST,
+        rootUri / sha256.toString
+      ).withBodyStream(fs2.io.readInputStream(Task.now(is), 2048))
+        .withHeaders(Headers(Authorization(BasicCredentials(auth.name, auth.password))))
+
+      httpClient.fetch(request) { resp =>
+        resp.status match {
+          case Status.Ok => Task.now(Right(PostResult.AlreadyExists))
+          case Status.Created => Task.now(Right(PostResult.Created))
+          case Status.Unauthorized => Task.now(Right(PostResult.Unauthorized))
+          case Status.PreconditionFailed => Task.now(Right(PostResult.ShaMismatch))
+          case Status.InsufficientStorage => Task.now(Right(PostResult.InsufficientStorage))
+
+          case _ =>
+            resp.bodyAsText.compile.last.map { body =>
+              Left(InvalidResponseException(resp.status.code, body.toString, "Unexpected status"))
+            }
+        }
       }
     } catch {
       case NonFatal(e) => Task.raiseError(e)
@@ -95,24 +132,6 @@ class DefaultStorClient(rootUri: String, httpClient: Client[Task])(implicit sch:
       case None => Task.now(Left(InvalidResponseException(resp.status.code, "-stream-", "Missing Content-Length header")))
     }
   }
-
-  override def post(sha256: Sha256)(is: InputStream): Task[Either[StorException, PostResult]] = ???
-
 }
 
-object Test extends App {
-
-  import Scheduler.Implicits.global
-
-  try {
-    val sha = Sha256("F6125E8A82EF3309BEB31742C6FCBC5A6A2B36D57894AF268ABB4EF09D71C562")
-
-    val client = new DefaultStorClient("http://stor.whale.int.avast.com", Await.result(Http1Client[Task]().runAsync, Duration.Inf))
-
-    val result = Await.result(client.get(sha).runAsync, Duration.Inf)
-
-    println(result)
-  } catch {
-    case e: Throwable => e.printStackTrace()
-  }
-}
+case class BasicAuth(name: String, password: String)

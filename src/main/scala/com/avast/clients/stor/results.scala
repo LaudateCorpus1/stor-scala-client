@@ -6,7 +6,7 @@ sealed trait HeadResult
 
 object HeadResult {
 
-  case object Exists extends HeadResult
+  case class Exists(length: Long) extends HeadResult
 
   case object NotFound extends HeadResult
 
@@ -26,22 +26,14 @@ sealed trait PostResult
 
 object PostResult {
 
-  case class AlreadyExists(locations: Map[String, Seq[String]]) extends PostResult
+  case object AlreadyExists extends PostResult
 
-  case class Created(locations: Map[String, Seq[String]]) extends PostResult
+  case object Created extends PostResult
 
   case object Unauthorized extends PostResult
 
   case object ShaMismatch extends PostResult
 
   case object InsufficientStorage extends PostResult
-
-}
-
-sealed trait StatusResult {
-
-  case object Ok extends StatusResult
-
-  case object SomeUnavailable extends StatusResult
 
 }
