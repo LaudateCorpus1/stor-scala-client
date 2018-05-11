@@ -3,6 +3,7 @@ package com.avast.clients.stor
 import java.io.InputStream
 
 import better.files.File
+import com.avast.scala.hashes.Sha256
 import com.typesafe.config.Config
 
 import scala.language.higherKinds

@@ -2,6 +2,7 @@ package com.avast.clients.stor
 
 import cats.effect.IO
 import com.avast.clients.stor.TestImplicits._
+import com.avast.scala.hashes.Sha256
 import monix.eval.Task
 import monix.execution.Scheduler.Implicits.global
 import org.http4s.client.blaze.Http1Client

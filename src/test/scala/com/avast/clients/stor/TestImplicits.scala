@@ -3,6 +3,8 @@ package com.avast.clients.stor
 import java.io.{ByteArrayInputStream, InputStream}
 import java.security.MessageDigest
 
+import com.avast.scala.hashes.Sha256
+
 import scala.util.Random
 
 object TestImplicits {

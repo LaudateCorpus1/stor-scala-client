@@ -3,6 +3,7 @@ package com.avast.clients.stor
 import java.io.{ByteArrayInputStream, InputStream}
 
 import better.files.File
+import com.avast.scala.hashes.Sha256
 import com.typesafe.scalalogging.StrictLogging
 import monix.eval.Task
 import monix.execution.Scheduler

@@ -42,6 +42,8 @@ dependencies {
     compile "org.http4s:http4s-dsl_2.12:$http4sVersion"
     compile "org.http4s:http4s-blaze-client_2.12:$http4sVersion"
 
+    compile 'com.avast.hashes:scala-hashes_2.12:1.0.1'
+
     compile 'com.github.pathikrit:better-files_2.12:3.4.0'
     compile 'commons-codec:commons-codec:1.11'
     compile 'commons-io:commons-io:2.6'
