@@ -82,7 +82,7 @@ class DefaultStorClient(rootUri: Uri, auth: BasicAuth, httpClient: Client[Task])
         Method.POST,
         rootUri / sha256.toString
       ).withBodyStream(fs2.io.readInputStream(Task.now(is), 2048))
-        .withHeaders(Headers(Authorization(BasicCredentials(auth.name, auth.password))))
+        .withHeaders(Headers(Authorization(BasicCredentials(auth.username, auth.password))))
 
       httpClient.fetch(request) { resp =>
         resp.status match {
@@ -135,4 +135,4 @@ class DefaultStorClient(rootUri: Uri, auth: BasicAuth, httpClient: Client[Task])
   }
 }
 
-case class BasicAuth(name: String, password: String)
+case class BasicAuth(username: String, password: String)

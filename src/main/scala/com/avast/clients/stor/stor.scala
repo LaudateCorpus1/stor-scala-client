@@ -1,7 +1,13 @@
 package com.avast.clients
 
+import java.io.InputStream
+
+import better.files.File
 import cats.arrow.FunctionK
 import cats.effect.{Effect, IO, Sync}
+import cats.~>
+import com.avast.scala.hashes.Sha256
+import mainecoon.FunctorK
 import monix.eval.Task
 import monix.execution.Scheduler
 
@@ -10,6 +16,25 @@ import scala.util.control.NonFatal
 
 package object stor {
   type FromTask[A[_]] = FunctionK[Task, A]
+
+  implicit val fkTask: FromTask[Task] = FunctionK.id
+
+  implicit val producerFunctorK: FunctorK[StorClient] = new FunctorK[StorClient] {
+    override def mapK[F[_], G[_]](client: StorClient[F])(fToG: ~>[F, G]): StorClient[G] = new StorClient[G] {
+      override def head(sha256: Sha256): G[Either[StorException, HeadResult]] = fToG {
+        client.head(sha256)
+      }
+
+      override def get(sha256: Sha256, dest: File): G[Either[StorException, GetResult]] = fToG {
+        client.get(sha256, dest)
+      }
+
+      override def post(sha256: Sha256)(is: InputStream): G[Either[StorException, PostResult]] = fToG {
+        client.post(sha256)(is)
+      }
+    }
+
+  }
 
   /* The following two implicits are here because current version of monix-cats module depends on old version of Cats. These are the only
    * things that we need from the dependency thus I implemented them by myself (and partially copied the code).
