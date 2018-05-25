@@ -10,7 +10,7 @@ class FileCopier {
 
   private val lock = new Object
 
-  private val digest: MessageDigest = MessageDigest.getInstance("SHA-256")
+  private val digest: MessageDigest = Sha256Provider.get()
 
   private var finalHash: Option[String] = None // scalastyle:ignore
 
