@@ -7,6 +7,7 @@ import com.avast.scala.hashes.Sha256
 
 import scala.util.Random
 
+/* Utils for testing. */
 object TestImplicits {
   def randomSha: Sha256 = Sha256(Stream.continually(Random.nextInt(9)).take(64).mkString)
 
