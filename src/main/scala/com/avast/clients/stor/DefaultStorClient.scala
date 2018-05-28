@@ -110,19 +110,25 @@ class DefaultStorClient(rootUri: Uri, auth: BasicAuth, httpClient: Client[Task])
         val fileOs = dest.newOutputStream
 
         resp.body.chunks
-          .map(bytes => new ByteArrayInputStream(bytes.toArray))
-          .map(fileCopier.copy(_, fileOs))
+          .map { bytes =>
+            val bis = new ByteArrayInputStream(bytes.toArray)
+            val copied = fileCopier.copy(bis, fileOs)
+            bis.close()
+            copied
+          }
           .compile
           .toVector
           .map { chunksSizes =>
             val transferred = chunksSizes.sum
+
+            fileOs.close() // all data has been transferred
 
             if (clh.length != transferred) {
               Left(InvalidResponseException(resp.status.code, "-stream-", s"Expected ${clh.length} B but got $transferred B"))
             } else {
               val transferredSha = fileCopier.finalSha256
 
-              if (transferredSha != sha256.toString) {
+              if (transferredSha != sha256) {
                 Left(InvalidResponseException(resp.status.code, "-stream-", s"Expected SHA256 $sha256 but got $transferredSha"))
               } else {
                 Right(GetResult.Downloaded(dest, transferred))

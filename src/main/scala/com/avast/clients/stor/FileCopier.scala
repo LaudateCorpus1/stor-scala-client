@@ -3,7 +3,7 @@ package com.avast.clients.stor
 import java.io.{InputStream, OutputStream}
 import java.security.MessageDigest
 
-import org.apache.commons.codec.binary.Hex
+import com.avast.scala.hashes.Sha256
 import org.apache.commons.io.IOUtils
 
 class FileCopier {
@@ -12,7 +12,7 @@ class FileCopier {
 
   private val digest: MessageDigest = Sha256Provider.get()
 
-  private var finalHash: Option[String] = None // scalastyle:ignore
+  private var finalHash: Option[Sha256] = None // scalastyle:ignore
 
   def copy(is: InputStream, os: OutputStream): Int = lock.synchronized {
     val fis = new ProxyInputStream(is)(digest.update(_))
@@ -20,11 +20,11 @@ class FileCopier {
     IOUtils.copy(fis, os)
   }
 
-  def finalSha256: String = lock.synchronized {
+  def finalSha256: Sha256 = lock.synchronized {
     finalHash match {
       case Some(hash) => hash
       case None =>
-        val hash = Hex.encodeHexString(digest.digest())
+        val hash = Sha256(digest.digest())
         finalHash = Some(hash)
         hash
     }
