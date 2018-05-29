@@ -1,6 +1,6 @@
 package com.avast.clients.stor
 
-import java.io.{ByteArrayInputStream, InputStream}
+import java.io.ByteArrayInputStream
 
 import better.files.File
 import com.avast.scala.hashes.Sha256
@@ -9,13 +9,11 @@ import monix.eval.Task
 import monix.execution.Scheduler
 import org.http4s._
 import org.http4s.client.Client
-import org.http4s.headers.{`Content-Length`, Authorization}
+import org.http4s.headers.`Content-Length`
 
 import scala.util.control.NonFatal
 
-class DefaultStorClient(rootUri: Uri, auth: BasicAuth, httpClient: Client[Task])(implicit sch: Scheduler)
-    extends StorClient[Task]
-    with StrictLogging {
+class DefaultStorClient(rootUri: Uri, httpClient: Client[Task])(implicit sch: Scheduler) extends StorClient[Task] with StrictLogging {
 
   override def head(sha256: Sha256): Task[Either[StorException, HeadResult]] = {
     logger.debug(s"Checking presence of file $sha256 in Stor")
@@ -70,33 +68,6 @@ class DefaultStorClient(rootUri: Uri, auth: BasicAuth, httpClient: Client[Task])
             }
         }
 
-      }
-    } catch {
-      case NonFatal(e) => Task.raiseError(e)
-    }
-  }
-
-  override def post(sha256: Sha256)(is: InputStream): Task[Either[StorException, PostResult]] = {
-    try {
-      val request = Request[Task](
-        Method.POST,
-        rootUri / sha256.toString
-      ).withBodyStream(fs2.io.readInputStream(Task.now(is), 2048))
-        .withHeaders(Headers(Authorization(BasicCredentials(auth.username, auth.password))))
-
-      httpClient.fetch(request) { resp =>
-        resp.status match {
-          case Status.Ok => Task.now(Right(PostResult.AlreadyExists))
-          case Status.Created => Task.now(Right(PostResult.Created))
-          case Status.Unauthorized => Task.now(Right(PostResult.Unauthorized))
-          case Status.PreconditionFailed => Task.now(Right(PostResult.ShaMismatch))
-          case Status.InsufficientStorage => Task.now(Right(PostResult.InsufficientStorage))
-
-          case _ =>
-            resp.bodyAsText.compile.last.map { body =>
-              Left(InvalidResponseException(resp.status.code, body.toString, "Unexpected status"))
-            }
-        }
       }
     } catch {
       case NonFatal(e) => Task.raiseError(e)

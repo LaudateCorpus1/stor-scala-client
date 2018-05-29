@@ -1,7 +1,5 @@
 package com.avast.clients
 
-import java.io.InputStream
-
 import better.files.File
 import cats.arrow.FunctionK
 import cats.effect.{Effect, IO, Sync}
@@ -27,10 +25,6 @@ package object stor {
 
       override def get(sha256: Sha256, dest: File): G[Either[StorException, GetResult]] = fToG {
         client.get(sha256, dest)
-      }
-
-      override def post(sha256: Sha256)(is: InputStream): G[Either[StorException, PostResult]] = fToG {
-        client.post(sha256)(is)
       }
     }
 
