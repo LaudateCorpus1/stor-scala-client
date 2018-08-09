@@ -25,6 +25,7 @@ repositories {
 
 group = 'com.avast.clients.stor'
 version = version == 'unspecified' ? 'DEVELOPER-SNAPSHOT' : version
+archivesBaseName = "stor-scala-client_2.12"
 
 ext {
     circeVersion = "0.9.3"

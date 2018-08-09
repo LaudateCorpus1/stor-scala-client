@@ -1,5 +1,6 @@
 package com.avast.clients.stor
 
+import better.files.File
 import cats.effect.IO
 import com.avast.clients.stor.TestImplicits._
 import com.avast.scala.hashes.Sha256
@@ -84,4 +85,18 @@ class DefaultStorClientTest extends FunSuite with ScalaFutures with MockitoSugar
     assertResult(fileSize)(file.size)
   }
 
+  test("") {
+    val httpClient = Http1Client[Task]().runAsync.futureValue
+
+    val client = new DefaultStorClient(
+      Uri.fromString(s"http://localhost:1324").getOrElse(fail()), // won't be used
+      httpClient
+    )
+
+    val invalidTargetDirectory = File("/file-copier-test-invalid-dir")
+
+    val result = client.get("nonsense".sha256, invalidTargetDirectory / "blah").runAsync.futureValue
+
+    assertResult(Left(InvalidDestinationException(invalidTargetDirectory / "blah")))(result)
+  }
 }

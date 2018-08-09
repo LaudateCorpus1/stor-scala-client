@@ -49,28 +49,36 @@ class DefaultStorClient(rootUri: Uri, httpClient: Client[Task])(implicit sch: Sc
   }
 
   override def get(sha256: Sha256, dest: File): Task[Either[StorException, GetResult]] = {
-    logger.debug(s"Getting file $sha256 from Stor")
+    if (dest.isDirectory) Task.now(Left(InvalidDestinationException(dest)))
+    else if (!dest.parent.exists) Task.now(Left(InvalidDestinationException(dest)))
+    else {
 
-    try {
-      val request = Request[Task](
-        Method.GET,
-        rootUri / sha256.toString
-      )
+      logger.debug(s"Getting file $sha256 from Stor")
 
-      httpClient.fetch(request) { resp =>
-        resp.status match {
-          case Status.Ok => receiveStreamedFile(sha256, dest, resp)
-          case Status.NotFound => Task.now(Right(GetResult.NotFound))
+      try {
+        val request = Request[Task](
+          Method.GET,
+          rootUri / sha256.toString
+        )
 
-          case _ =>
-            resp.bodyAsText.compile.last.map { body =>
-              Left(InvalidResponseException(resp.status.code, body.toString, "Unexpected status"))
+        httpClient
+          .fetch(request) { resp =>
+            resp.status match {
+              case Status.Ok => receiveStreamedFile(sha256, dest, resp)
+              case Status.NotFound => Task.now(Right(GetResult.NotFound))
+
+              case _ =>
+                resp.bodyAsText.compile.last.map { body =>
+                  Left(InvalidResponseException(resp.status.code, body.toString, "Unexpected status"))
+                }
             }
-        }
-
+          }
+          .onErrorRecover {
+            case e: java.net.ConnectException => Left(StorUnavailableException(rootUri.toString(), e))
+          }
+      } catch {
+        case NonFatal(e) => Task.raiseError(e)
       }
-    } catch {
-      case NonFatal(e) => Task.raiseError(e)
     }
   }
 
@@ -78,34 +86,38 @@ class DefaultStorClient(rootUri: Uri, httpClient: Client[Task])(implicit sch: Sc
     `Content-Length`.from(resp.headers) match {
       case Some(clh) =>
         val fileCopier = new FileCopier
-        val fileOs = dest.newOutputStream
 
-        resp.body.chunks
-          .map { bytes =>
-            val bis = new ByteArrayInputStream(bytes.toArray)
-            val copied = fileCopier.copy(bis, fileOs)
-            bis.close()
-            copied
-          }
-          .compile
-          .toVector
-          .map { chunksSizes =>
-            val transferred = chunksSizes.sum
+        Task {
+          dest.delete()
+          dest.newOutputStream
+        }.flatMap { fileOs =>
+          resp.body.chunks
+            .map { bytes =>
+              val bis = new ByteArrayInputStream(bytes.toArray)
+              val copied = fileCopier.copy(bis, fileOs)
+              bis.close()
+              copied
+            }
+            .compile
+            .toVector
+            .map { chunksSizes =>
+              val transferred = chunksSizes.sum
 
-            fileOs.close() // all data has been transferred
+              fileOs.close() // all data has been transferred
 
-            if (clh.length != transferred) {
-              Left(InvalidResponseException(resp.status.code, "-stream-", s"Expected ${clh.length} B but got $transferred B"))
-            } else {
-              val transferredSha = fileCopier.finalSha256
-
-              if (transferredSha != sha256) {
-                Left(InvalidResponseException(resp.status.code, "-stream-", s"Expected SHA256 $sha256 but got $transferredSha"))
+              if (clh.length != transferred) {
+                Left(InvalidResponseException(resp.status.code, "-stream-", s"Expected ${clh.length} B but got $transferred B"))
               } else {
-                Right(GetResult.Downloaded(dest, transferred))
+                val transferredSha = fileCopier.finalSha256
+
+                if (transferredSha != sha256) {
+                  Left(InvalidResponseException(resp.status.code, "-stream-", s"Expected SHA256 $sha256 but got $transferredSha"))
+                } else {
+                  Right(GetResult.Downloaded(dest, transferred))
+                }
               }
             }
-          }
+        }
 
       case None => Task.now(Left(InvalidResponseException(resp.status.code, "-stream-", "Missing Content-Length header")))
     }
