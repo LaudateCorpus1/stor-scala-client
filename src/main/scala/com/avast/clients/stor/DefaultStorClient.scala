@@ -88,7 +88,7 @@ class DefaultStorClient(rootUri: Uri, httpClient: Client[Task])(implicit sch: Sc
         val fileCopier = new FileCopier
 
         Task {
-          dest.delete()
+          if (dest.exists) dest.delete()
           dest.newOutputStream
         }.flatMap { fileOs =>
           resp.body.chunks
